@@ -16,7 +16,7 @@ steps:
     environment:
       HUGO_ENV: production
     commands:
-      - hugo -s ./source -d ./target --baseURL https://beanow.github.io/sfosc-pages/
+      - hugo -s ./source -d ../target --baseURL https://beanow.github.io/sfosc-pages/
 
   - name: commit-and-push
     image: docker:git
