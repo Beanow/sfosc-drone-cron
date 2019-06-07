@@ -1,9 +1,15 @@
 kind: pipeline
 name: update-preview
 
+clone:
+  disable: true
+
 steps:
   - name: git-config
     image: docker:git
+    volumes:
+      - name: ssh
+        path: /root/.ssh
     environment:
       SSH_DEPLOY_KEY:
         from_secret: ssh-deploy-key
@@ -19,6 +25,9 @@ steps:
 
   - name: clone-more
     image: docker:git
+    volumes:
+      - name: ssh
+        path: /root/.ssh
     commands:
       - ls -l ~/.ssh
       - git clone https://github.com/sfosc/sfosc.git source
@@ -34,11 +43,18 @@ steps:
 
   - name: commit-and-push
     image: docker:git
+    volumes:
+      - name: ssh
+        path: /root/.ssh
     commands:
       - cd target
       - git add --all
       - git commit -m "Rebuilding site `date`"
       - git push git@github.com:Beanow/sfosc-pages.git master
+
+volumes:
+- name: ssh
+  temp: {}
 
 trigger:
   event:
