@@ -30,6 +30,9 @@ steps:
       - git config core.sshCommand 'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'
       - git config user.email "bot@sfosc.org"
       - git config user.name "Deployment Bot"
+      - ls -la .
+      - ls -la ../source
+      - cat index.html | grep generator
       - git add --all
       - git commit -m "Rebuilding site `date`"
       - git push git@github.com:Beanow/sfosc-pages.git master
