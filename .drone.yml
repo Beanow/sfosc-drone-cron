@@ -14,7 +14,7 @@ steps:
       # Store the secret deploy key.
       - mkdir -p ~/.ssh && echo "$SSH_DEPLOY_KEY" > ~/.ssh/id_rsa && chmod 0600 ~/.ssh/id_rsa
       # This allows pushing without knowing github's key fingerprint ahead of time.
-      - ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+      - git config --global core.sshCommand 'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'
       - git config --global user.email "bot@sfosc.org"
       - git config --global user.name "Deployment Bot"
 
