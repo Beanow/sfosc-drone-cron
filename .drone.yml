@@ -11,6 +11,18 @@ steps:
       - git clone --depth 1 https://github.com/sfosc/sfosc.git source
       - git clone --depth 1 https://github.com/Beanow/sfosc-pages.git target
 
+  - name: check-for-updates
+    image: docker:git
+    commands:
+      - >
+        echo "Source SHA = $(git -C source rev-parse --verify HEAD)";
+        echo "Target SHA = $(cat target/.HEAD)";
+        if [ -f target/.HEAD ] && [ "$(git -C source rev-parse --verify HEAD)" == "$(cat target/.HEAD)" ]; then
+          echo "Already up to date" && sh -c "exit 1";
+        else
+          echo "Should deploy a new build";
+        fi
+
   - name: build
     image: klakegg/hugo:0.55.6
     environment:
@@ -26,6 +38,8 @@ steps:
     commands:
       # Store the secret deploy key.
       - mkdir -p ~/.ssh && echo "$SSH_DEPLOY_KEY" > ~/.ssh/id_rsa && chmod 0600 ~/.ssh/id_rsa
+      # Track the SHA we've built from.
+      - echo "$(git -C source rev-parse --verify HEAD)" > target/.HEAD
       - cd target
       - git config core.sshCommand 'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'
       - git config user.email "bot@sfosc.org"
@@ -35,5 +49,5 @@ steps:
       - git push git@github.com:Beanow/sfosc-pages.git master
 
 trigger:
-  cron:
-  - preview
+  branch:
+    - master
