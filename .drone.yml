@@ -5,60 +5,76 @@ clone:
   disable: true
 
 steps:
-  - name: clone
-    image: docker:git
-    commands:
-      - git clone --depth 1 https://github.com/sfosc/sfosc.git source
-      - git clone --depth 1 https://github.com/sfosc/preview.git target
-
-  - name: check-for-updates
-    image: docker:git
-    commands:
-      - >
-        echo "Source SHA = $(git -C source rev-parse --verify HEAD)";
-        echo "Target SHA = $(cat target/.HEAD)";
-        if [ -f target/.HEAD ] && [ "$(git -C source rev-parse --verify HEAD)" == "$(cat target/.HEAD)" ]; then
-          echo "Already up to date";
-          touch SKIP;
-        else
-          echo "Should deploy a new build";
-        fi
-
-  - name: build
-    image: klakegg/hugo:0.55.6
+  - name: update-preview
+    image: cibuilds/hugo:0.55.6
     environment:
-      HUGO_ENV: production
-    commands:
-      - >
-        if [ -f SKIP ]; then
-          echo "Skipping, because we're up to date.";
-        else
-          hugo -s ./source -d ../target --config config.preview.toml;
-        fi
-
-  - name: commit-and-push
-    image: docker:git
-    environment:
+      FORCE_UPDATE: "yes"
       SSH_DEPLOY_KEY:
         from_secret: SSH_DEPLOY_KEY
     commands:
-      - >
-        if [ -f SKIP ]; then
-          echo "Skipping, because we're up to date.";
-        else
-          # Store the secret deploy key.
-          mkdir -p ~/.ssh && echo "$SSH_DEPLOY_KEY" > ~/.ssh/id_rsa && chmod 0600 ~/.ssh/id_rsa;
-          # Track the SHA we've built from.
-          echo "$(git -C source rev-parse --verify HEAD)" > target/.HEAD;
-          cd target;
-          git config core.sshCommand 'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no';
-          git config user.email "bot@sfosc.org";
-          git config user.name "Deployment Bot";
-          git add --all;
-          git commit -m "Rebuilding site `date`";
-          git push git@github.com:sfosc/preview.git master;
+      # Store the secret deploy key.
+      - mkdir -p ~/.ssh && echo "$SSH_DEPLOY_KEY" > ~/.ssh/id_rsa && chmod 0600 ~/.ssh/id_rsa
+      # Find any SSH server key fingerprints from GitHub.
+      - ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+      # Configure git commit details as a bot.
+      - git config --global user.email "bot@sfosc.org"
+      - git config --global user.name "Deployment Bot"
+      # Work from the upstream repository.
+      - git clone https://github.com/sfosc/sfosc.git .
+      # Pretending for a moment this is the ./deploy-preview.sh script from the sfosc repo.
+      - |
+        echo -e "\033[0;32mDeploying updates to GitHub...\033[0m"
+
+        # Check our dependencies.
+        if [ -z "$(which hugo)" ]; then
+          echo "Hugo must be installed and available in \$PATH"
+          exit 1
+        fi
+        if [ -z "$(which git)" ]; then
+          echo "Git must be installed and available in \$PATH"
+          exit 1
         fi
 
-trigger:
-  branch:
-    - master
+        # Make sure we're in the project root.
+        # Note: this $0 only works if we call the script, so skip it for now.
+        # toplevel="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
+        toplevel="$(git rev-parse --show-toplevel)"
+        cd "${toplevel}"
+
+        # Check we're not in a dirty state.
+        dirty_files=$(git status --porcelain --ignore-submodules 2> /dev/null)
+        if [ -z "$FORCE_UPDATE" ] && [ ! -z "$dirty_files" ]; then
+          echo "Looks like you have uncommitted changes, aborting."
+          echo "$dirty_files"
+          exit 1
+        fi
+
+        # Force checkout the remote preview master branch (detached).
+        git submodule update --init --remote --checkout preview || exit 1
+
+        # Find source and target commit hash.
+        SOURCE_SHA="$(git rev-parse --verify HEAD)"
+        TARGET_SHA="$(cat preview/.HEAD)"
+        echo "Source SHA = $SOURCE_SHA"
+        echo "Target SHA = $TARGET_SHA"
+
+        # When the target has a SHA reference, and they're the same, skip.
+        if [ -z "$FORCE_UPDATE" ] && [ ! -z "$TARGET_SHA" ] && [ "$SOURCE_SHA" == "$TARGET_SHA" ]; then
+          echo "Source and last built commit are the same. No need to update."
+        else
+          # Build the project into the submodule.
+          hugo -s . -d ./preview --config config.preview.toml
+
+          # Track the SHA we've built from.
+          echo "$(git rev-parse --verify HEAD)" > preview/.HEAD
+
+          # Go To Preview folder
+          cd ./preview
+
+          # Push preview repo from the detached head.
+          git add --all
+          git commit -m "Rebuilding site `date`"
+          git push --dry-run origin HEAD:master
+        fi
+
+
