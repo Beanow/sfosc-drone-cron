@@ -7,5 +7,3 @@ It runs a cronjob to see if the SHA hash of the main repository has changed.
 https://github.com/sfosc/sfosc
 
 If it has, it will push a new build to https://github.com/sfosc/preview.
-
-Don't be alarmed by failed builds, as this is probably because no update is required.
