@@ -1,5 +1,11 @@
-[![Build Status](https://cloud.drone.io/api/badges/Beanow/sfosc-drone-cron/status.svg)](https://cloud.drone.io/Beanow/sfosc-drone-cron)
+[![Build Status](https://drone.sfosc.robin-it.com/api/badges/Beanow/sfosc-drone-cron/status.svg)](https://drone.sfosc.robin-it.com/Beanow/sfosc-drone-cron)
 
-This is an attempt at using https://drone.io/ for building the https://github.com/sfosc/sfosc hugo pages on a cronjob basis.
+This is a workaround for [sfosc/sfosc #79](https://github.com/sfosc/sfosc/issues/79) to build the preview at a regular interval.
+https://sfosc.org/preview/
 
-It would address https://github.com/sfosc/sfosc/issues/79 while permission issues are being worked out.
+It runs a cronjob to see if the SHA hash of the main repository has changed.
+https://github.com/sfosc/sfosc
+
+If it has, it will push a new build to https://github.com/sfosc/preview.
+
+Don't be alarmed by failed builds, as this is probably because no update is required.
